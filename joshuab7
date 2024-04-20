@@ -1,0 +1,92 @@
+let categories = [];
+let jeopardyBoard = document.createElement('table');
+let thead = jeopardyBoard.createTHead();
+let tbody = jeopardyBoard.createTBody();
+
+let headerRow = thead.insertRow();
+for (let i = 0; i < 6; i++) {
+    let th = document.createElement('th');
+    th.textContent = "?";
+    headerRow.appendChild(th);
+}
+
+
+for (let i = 0; i < 5; i++) {
+    let tr = tbody.insertRow();
+    for (let j = 0; j < 6; j++) {
+        let td = tr.insertCell();
+        td.textContent = "?";
+        td.classList.add('clue');
+        td.setAttribute('data-category-index', j);
+        td.setAttribute('data-clue-index', i);
+        td.addEventListener('click', handleClick);
+    }
+}
+
+document.body.appendChild(jeopardyBoard);
+
+async function getCategoryIds() {
+    try {
+        const res = await axios.get(`https://rithm-jeopardy.herokuapp.com/api/categories?count=100`);
+        const cat = res.data;
+        const selectedCategories = _.sampleSize(cat, 6); 
+        selectedCategories.forEach(category => {
+            const categoryId = category.id;
+            getCategory(categoryId);
+        });
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function getCategory(categoryId) {
+    try {
+        const catIdUrl = `https://rithm-jeopardy.herokuapp.com/api/category?id=${categoryId}`;
+        const res = await axios.get(catIdUrl);
+        const title = res.data.title;
+        const clues = res.data.clues;
+        const clueArray = clues.map(clue => ({
+            question: clue.question,
+            answer: clue.answer,
+            showing: null
+        }));
+        categories.push({ title, clueArray });
+        fillTable(categories);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function fillTable(categories) {
+    let headerCells = document.querySelectorAll('thead th');
+    categories.forEach((category, index) => {
+        if (index < headerCells.length) {
+            headerCells[index].textContent = category.title;
+        }
+    });
+}
+
+function handleClick(evt) {
+    let cell = evt.target;
+    let categoryIndex = parseInt(cell.getAttribute('data-category-index')); 
+    let clueIndex = parseInt(cell.getAttribute('data-clue-index'));
+    let category = categories[categoryIndex]; 
+    let clue = category.clueArray[clueIndex];
+    if (!clue.showing) {
+        cell.textContent = clue.question;
+        clue.showing = "question";
+    } else if (clue.showing === "question") {
+        cell.textContent = clue.answer;
+        clue.showing = "answer";
+    }
+}
+
+async function setupAndStart() {
+    await getCategoryIds();
+}
+
+$('button').on('click', function () {
+    setupAndStart();
+});
+
+
